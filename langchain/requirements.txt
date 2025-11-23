@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+supabase
+langchain-core
+langgraph
+perplexity-api-async 
+curl_cffi
