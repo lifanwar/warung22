@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./langchain:/app
+      - ./langchain/perplexity_async/client.py:/usr/local/lib/python3.11/site-packages/perplexity_async/client.py
     ports:
       - "8000:8000"
     env_file:
