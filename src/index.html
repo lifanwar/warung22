@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Connection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow-x: hidden;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            padding: clamp(20px, 5vw, 40px);
+            text-align: center;
+            overflow: hidden;
+        }
+        
+        .header {
+            margin-bottom: clamp(15px, 4vw, 30px);
+        }
+        
+        .logo {
+            width: clamp(40px, 10vw, 50px);
+            height: clamp(40px, 10vw, 50px);
+            margin-bottom: clamp(10px, 3vw, 15px);
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+        }
+        
+        h1 {
+            color: #128C7E;
+            font-size: clamp(18px, 5vw, 24px);
+            margin-bottom: clamp(4px, 2vw, 8px);
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: clamp(14px, 4vw, 16px);
+            margin-bottom: clamp(15px, 4vw, 30px);
+        }
+        
+        .qr-container {
+            background-color: #f8f9fa;
+            padding: clamp(15px, 4vw, 25px);
+            border-radius: 15px;
+            margin-bottom: clamp(15px, 4vw, 25px);
+            display: inline-block;
+            max-width: 100%;
+        }
+        
+        .qr-code {
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .instructions {
+            color: #666;
+            font-size: clamp(12px, 3.5vw, 14px);
+            line-height: 1.6;
+            margin-bottom: clamp(15px, 4vw, 20px);
+            text-align: left;
+        }
+        
+        .instruction-step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .step-number {
+            background-color: #25D366;
+            color: white;
+            width: clamp(20px, 6vw, 24px);
+            height: clamp(20px, 6vw, 24px);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(10px, 3vw, 12px);
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        
+        .footer {
+            margin-top: clamp(20px, 5vw, 30px);
+            font-size: clamp(10px, 3vw, 12px);
+            color: #999;
+        }
+        
+        .expiry {
+            margin-top: clamp(15px, 4vw, 20px);
+            font-size: clamp(12px, 3.5vw, 14px);
+            color: #FF6B6B;
+            font-weight: 600;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(37, 211, 102, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+            }
+        }
+        
+        /* Extra small devices */
+        @media (max-width: 375px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .qr-container {
+                padding: 10px;
+            }
+            
+            .instruction-step {
+                margin-bottom: 8px;
+            }
+        }
+        
+        /* Medium to large devices */
+        @media (min-width: 768px) {
+            .container {
+                min-width: 480px;
+            }
+        }
+        
+        /* Portrait orientation adjustment */
+        @media (max-height: 600px) and (orientation: landscape) {
+            body {
+                align-items: flex-start;
+                padding-top: 10px;
+            }
+            
+            .container {
+                max-height: 98vh;
+                overflow-y: auto;
+                padding: 15px;
+            }
+            
+            .header {
+                margin-bottom: 10px;
+            }
+            
+            .qr-container {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+            
+            .instructions {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path fill="#25D366" d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564c.173.087.289.131.332.202.043.72.043.376-.101.607z"></path>
+                <path fill="#25D366" d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm.031 18c-1.14 0-2.242-.303-3.223-.874l-3.594 1.143 1.124-3.585c-.626-1.008-.962-2.175-.962-3.357.001-3.509 2.861-6.369 6.369-6.369S18.116 7.818 18.115 11.328c-.001 3.51-2.86 6.372-6.369 6.372z"></path>
+            </svg>
+            <h1>Broadcast Whatsapp Bot</h1>
+            <p class="subtitle">Scan QR code dengan Whatsapp Anda</p>
+        </div>
+        
+        <div class="qr-container pulse">
+            <img class="qr-code" src="{{QR_CODE_PLACEHOLDER}}" alt="WhatsApp QR Code">
+        </div>
+        
+        <div class="instructions">
+            <div class="instruction-step">
+                <div class="step-number">1</div>
+                <div>Buka Whatsapp anda</div>
+            </div>
+            <div class="instruction-step">
+                <div class="step-number">2</div>
+                <div>Klik titik tiga dan pilih tautkan perangkat</div>
+            </div>
+            <div class="instruction-step">
+                <div class="step-number">3</div>
+                <div>Scan ke Qrcode yang ada di atas</div>
+            </div>
+        </div>
+        
+        <p class="expiry">Qrcode ini akan kadaluarsa setiap 15 detik sekali, kalau tidak bisa masuk silakan refresh page</p>
+        
+        <div class="footer">
+            <p>© {{CURRENT_YEAR}} Lian Group</p>
+        </div>
+    </div>
+</body>
+</html>
