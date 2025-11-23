@@ -5,6 +5,7 @@ pydantic
 supabase
 langchain-core
 langgraph
-perplexity-api-async 
+perplexity-api-async
+perplexity-api
 curl_cffi
 websocket-client
