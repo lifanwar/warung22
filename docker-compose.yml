@@ -6,7 +6,7 @@ services:
       context: ./langchain
       dockerfile: Dockerfile
     volumes:
-      - .:/app
+      - ./langchain:/app
     ports:
       - "8000:8000"
     env_file:
