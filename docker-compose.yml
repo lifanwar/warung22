@@ -5,7 +5,7 @@ services:
     build:
       context: ./langchain
       dockerfile: Dockerfile
-     volumes:
+    volumes:
       - .:/app
     ports:
       - "8000:8000"
