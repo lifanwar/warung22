@@ -1,0 +1,12 @@
+node_modules/
+session1/
+cookies/
+
+.env
+.venv
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+
+perplexity_cookies.py
