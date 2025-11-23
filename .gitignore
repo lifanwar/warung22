@@ -1,6 +1,5 @@
 node_modules/
 session1/
-cookies/
 
 .env
 .venv
