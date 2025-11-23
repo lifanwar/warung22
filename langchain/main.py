@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 from dotenv import load_dotenv
-from config.cookies import perplexity_cookies
+from config.cookies.perplexity_cookies import perplexity_cookies
 
 # Load environment
 load_dotenv()
@@ -62,7 +62,7 @@ async def run_cli_mode():
     
     try:
         logger.info("🔌 Initializing Perplexity client...")
-        perplexity_cli = await Client(perplexity_cookies.perplexity_cookies)
+        perplexity_cli = await Client(perplexity_cookies)
         logger.info("✅ Perplexity client initialized\n")
         logger.info(f"Cookies:{perplexity_cli}\n")
     except Exception as e:
