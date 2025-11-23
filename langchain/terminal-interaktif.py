@@ -83,9 +83,9 @@ async def ask_question(perplexity_cli):
                 mode="pro",           
                 model='claude-4.5-sonnet',        
                 sources=['web'], 
-                stream=True, 
+                stream=False, 
                 follow_up=None, 
-                incognito=False
+                incognito=True
             )
             
             # Gunakan handler universal
