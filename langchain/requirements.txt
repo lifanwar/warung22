@@ -7,3 +7,4 @@ langchain-core
 langgraph
 perplexity-api-async 
 curl_cffi
+websocket-client
