@@ -2,10 +2,10 @@ services:
   langchain-api:
     build:
       context: ./langchain
-      dockerfile: Dockerfile
+      dockerfile: nix-Dockerfile
     volumes:
-      # - ./langchain:/app
-      - ./langchain/perplexity_async:/usr/local/lib/python3.11/site-packages/perplexity_async
+      - ./langchain:/app
+      # - ./langchain/perplexity_async:/usr/local/lib/python3.11/site-packages/perplexity_async
     ports:
       - "8000:8000"
     env_file:
