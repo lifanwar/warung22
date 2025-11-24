@@ -22,8 +22,7 @@ pkgs.mkShell {
 
     # Upgrade pip dan install paket kurigram
     pip install --upgrade pip
-    pip install perplexity-api perplexity-api-async curl_cffi websocket-client python-dotenv supabase
-
+    pip install -r requirements.txt
     echo "Environment siap. Virtual environment sudah aktif dan paket perplexity telah diinstall."
   '';
 }
