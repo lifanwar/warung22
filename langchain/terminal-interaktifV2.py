@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from perplexity_async import Client
 from config.cookies.perplexity_cookies import perplexity_cookies
 from rich.console import Console
@@ -9,35 +10,26 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.markdown import Markdown
 from rich.rule import Rule
 from rich.align import Align
+from rich.live import Live
+from rich import box
 from datetime import datetime
 
 console = Console()
 
 def extract_answer_from_response(resp):
-    """
-    Ekstrak jawaban dari response Perplexity API dengan menangani multiple format.
-    Support:
-      - step-by-step (Claude/GPT) => cari step_type='FINAL'
-      - plain text (Grok)
-      - Fallback error
-    """
     if not resp or 'text' not in resp:
         return "Error: No response from API"
-
     text_content = resp['text']
     if isinstance(text_content, list):
         try:
             final_step = next((step for step in text_content if isinstance(step, dict) and step.get('step_type') == 'FINAL'), None)
             if final_step and 'content' in final_step:
                 content = final_step['content']
-                # jawab kl 'answer' ada
                 if isinstance(content, dict) and 'answer' in content:
                     answer_content = content['answer']
-                    # kadang ini double string json
                     if isinstance(answer_content, str):
                         try:
                             answer_json = json.loads(answer_content)
-                            # Claude, Grok format: {"answer": "...", "web_results": [...]}
                             return answer_json.get('answer', str(answer_json))
                         except Exception:
                             return answer_content
@@ -45,9 +37,7 @@ def extract_answer_from_response(resp):
                         return answer_content.get('answer', str(answer_content))
                     else:
                         return str(answer_content)
-                # fallback ke content string
                 return str(content)
-            # fallback step terakhir
             elif text_content:
                 last_step = text_content[-1]
                 if isinstance(last_step, dict) and 'content' in last_step:
@@ -63,41 +53,54 @@ def extract_answer_from_response(resp):
     return f"Error: Unknown text format: {type(text_content)} - {str(text_content)[:100]}"
 
 def show_search_queries(steps):
-    """
-    Cari step_type==SEARCH_WEB dan tampilkan queries.
-    """
     for step in steps:
         if step.get('step_type') == 'SEARCH_WEB':
             queries = []
             if 'content' in step and 'queries' in step['content']:
                 queries = step['content']['queries']
-            elif 'content' in step and 'queries' not in step['content'] and 'goal_id' in step['content']:  # support variasi lain
+            elif 'content' in step and 'queries' not in step['content'] and 'goal_id' in step['content']:
                 queries = step['content'].get('queries', [])
             if queries:
                 console.print("\n[bold cyan]Web Search Queries Used:[/bold cyan]")
                 for i, q in enumerate(queries, 1):
                     console.print(f"- [{q.get('engine', '-')}] {q.get('query', '')}")
 
-def show_search_results(steps):
+def show_search_preview_and_wait(steps):
     """
-    Cari step_type==SEARCH_RESULTS dan tampilkan web_results (judul, url, snippet)
+    Tampilkan satu panel preview search web result saat loading.
     """
     for step in steps:
         if step.get('step_type') == 'SEARCH_RESULTS':
             web_results = []
-            # Versi dict bisa berbeda, akomodasi dua kemungkinan kunci
             if 'content' in step and 'web_results' in step['content']:
                 web_results = step['content']['web_results']
-            elif 'web_results_content' in step and 'web_results' in step['web_results_content']:
-                web_results = step['web_results_content']['web_results']
             if web_results:
-                console.print("\n[bold magenta]Top Web Results:[/bold magenta]")
-                for i, r in enumerate(web_results[:6], 1):
+                r = web_results[0]
+                name = r.get('name', '-')
+                url = r.get('url', '-')
+                snippet = r.get('snippet', '-')
+                console.print(Panel(f"[bold yellow]1. {name}[/bold yellow]\n[yellow]{snippet}[/yellow]\n[blue underline]{url}[/blue underline]",
+                                    border_style="bright_magenta", padding=(0,1)))
+            break
+
+def show_search_results_simple(steps):
+    """
+    Tampilkan semua web result sebagai list sederhana saja (tidak pakai panel/box).
+    """
+    for step in steps:
+        if step.get('step_type') == 'SEARCH_RESULTS':
+            web_results = []
+            if 'content' in step and 'web_results' in step['content']:
+                web_results = step['content']['web_results']
+            if web_results:
+                console.print("\n[bold magenta]Web Sources Used:[/bold magenta]")
+                for i, r in enumerate(web_results, 1):
                     name = r.get('name', '-')
                     url = r.get('url', '-')
-                    snippet = r.get('snippet', '-')
-                    console.print(Panel(f"[bold]{i}. {name}[/bold]\n[yellow]{snippet}[/yellow]\n[blue underline]{url}[/blue underline]",
-                                        border_style="dim", padding=(0,1)))
+                    domain = url.split('//')[-1].split('/')[0]
+                    # Title cyan, domain kuning, index bold
+                    console.print(f"[bold cyan]{i}.[/bold cyan] [white]{name}[/white] [dim]-[/dim] [yellow]{domain}[/yellow]")
+            break
 
 def print_header():
     title = Text("🤖 Perplexity AI Terminal", style="bold cyan")
@@ -112,7 +115,7 @@ def print_footer():
     footer_panel = Panel(Align.center(timestamp), border_style="dim", padding=(0, 1))
     console.print(footer_panel)
 
-async def ask_question(perplexity_cli, use_streaming=False):
+async def ask_question(perplexity_cli):
     print_header()
     while True:
         prompt_text = Text.assemble(
@@ -134,54 +137,56 @@ async def ask_question(perplexity_cli, use_streaming=False):
             console.print("[bold red]⚠️  Question cannot be empty![/bold red]")
             continue
         try:
-            # non-streaming untuk kejelasan step dan raw
-            resp = await perplexity_cli.search(
-                question,
-                mode="pro",
-                model='claude-4.5-sonnet',
-                sources=['web'],
-                stream=False,
-                follow_up=None,
-                incognito=True
-            )
-            all_steps = []
-            if hasattr(resp, '__aiter__'):
-                full_response = {}
-                async for chunk in resp:
-                    if isinstance(chunk, dict):
-                        if 'text' in chunk and isinstance(chunk['text'], list):
-                            all_steps.extend(chunk['text'])
-                        for key, value in chunk.items():
-                            if key == 'text' and key in full_response:
-                                if isinstance(full_response[key], list):
-                                    if isinstance(value, list):
-                                        full_response[key].extend(value)
-                                    else:
-                                        full_response[key].append(value)
-                                else:
-                                    full_response[key] = value
-                            else:
-                                full_response[key] = value
-            elif isinstance(resp, dict):
-                if 'text' in resp and isinstance(resp['text'], list):
-                    all_steps.extend(resp['text'])
-            else:
-                console.print(f"[bold red]❌ Error: Unknown response type: {type(resp)}[/bold red]")
-                continue
+            # TAHAP 1: Spinner + search preview box  
+            with Progress(
+                SpinnerColumn("dots"),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+            ) as progress:
+                task = progress.add_task("[cyan]Loading initial search web...", total=None)
+                resp = await perplexity_cli.search(
+                    question,
+                    mode="pro",
+                    model='claude-4.5-sonnet',
+                    sources=['web'],
+                    stream=False,
+                    follow_up=None,
+                    incognito=True
+                )
+                all_steps = []
+                if hasattr(resp, '__aiter__'):
+                    async for chunk in resp:
+                        if isinstance(chunk, dict):
+                            if 'text' in chunk and isinstance(chunk['text'], list):
+                                all_steps.extend(chunk['text'])
+                elif isinstance(resp, dict):
+                    if 'text' in resp and isinstance(resp['text'], list):
+                        all_steps.extend(resp['text'])
+                else:
+                    console.print(f"[bold red]❌ Error: Unknown response type: {type(resp)}[/bold red]")
+                    continue
+                progress.update(task, description="[magenta]Showing preview result...")
+                show_search_preview_and_wait(all_steps)
+                time.sleep(1.5)  # biar preview box bisa terbaca, lalu diganti next stage
 
-            # tampilkan step search queries dan web result
-            show_search_queries(all_steps)
-            show_search_results(all_steps)
+            # TAHAP 2: Loading final answer + simple web list
+            with Progress(
+                SpinnerColumn("dots"),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+            ) as progress:
+                task = progress.add_task("[cyan]Generating final answer...", total=None)
+                time.sleep(0.5)
+                show_search_results_simple(all_steps)
+                progress.remove_task(task)
 
-            # tampilkan jawaban akhir (final answer)
+            # FINAL ANSWER
             answer = extract_answer_from_response({'text': all_steps})
             console.print(Rule(title="Final Answer", style="bright_green"))
-            # auto tampilkan markdown jika ada code block/nl
             if isinstance(answer, str) and ('```'):
                 console.print(Markdown(answer))
             else:
-                answer_panel = Panel(answer, border_style="bright_blue", padding=(1,2), title="Answer", title_align="left")
-                console.print(answer_panel)
+                console.print(Panel(answer, border_style="bright_blue", padding=(1,2), title="Answer", title_align="left"))
             console.print(Rule(style="bright_green"))
         except Exception as e:
             error_panel = Panel(f"❌ Error processing question: {str(e)}", border_style="red", style="bold red", title="Error")
@@ -194,7 +199,7 @@ async def main():
     try:
         perplexity_cli = await Client(perplexity_cookies)
         console.print("[bold green]✓[/bold green] [dim]Client ready![/dim]\n")
-        await ask_question(perplexity_cli, use_streaming=False)
+        await ask_question(perplexity_cli)
     except Exception as e:
         error_panel = Panel(f"Failed to initialize client: {str(e)}", border_style="red", style="bold red", title="Initialization Error")
         console.print(error_panel)
