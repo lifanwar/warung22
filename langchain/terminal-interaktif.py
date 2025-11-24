@@ -88,22 +88,52 @@ async def ask_question(perplexity_cli):
                 incognito=True
             )
             
-            # Gunakan handler universal
-            answer = extract_answer_from_response(resp)
+            # KUNCI: Deteksi apakah resp adalah async generator atau dict
+            final_response = None
             
+            # Cek apakah async generator
+            if hasattr(resp, '__aiter__'):
+                # Ini async generator, collect semua chunks
+                full_response = {}
+                async for chunk in resp:
+                    if isinstance(chunk, dict):
+                        # Merge chunks
+                        for key, value in chunk.items():
+                            if key == 'text' and key in full_response:
+                                # Append text jika sudah ada
+                                if isinstance(full_response[key], list):
+                                    if isinstance(value, list):
+                                        full_response[key].extend(value)
+                                    else:
+                                        full_response[key].append(value)
+                                else:
+                                    full_response[key] = value
+                            else:
+                                full_response[key] = value
+                final_response = full_response
+            
+            elif isinstance(resp, dict):
+                # Sudah dict langsung (behavior di local)
+                final_response = resp
+            
+            else:
+                print(f"Error: Unknown response type: {type(resp)}")
+                continue
+            
+            # Extract answer
+            answer = extract_answer_from_response(final_response)
             print(f"Jawaban: {answer}\n")
             
         except Exception as e:
             print(f"Error saat memproses pertanyaan: {str(e)}\n")
-            # Print debug info jika error
-            if 'resp' in locals():
-                print(f"Debug - Response keys: {list(resp.keys())}")
-                if 'text' in resp:
-                    print(f"Debug - Text type: {type(resp['text'])}")
+            import traceback
+            traceback.print_exc()
+
 
 async def main():
     perplexity_cli = await Client(perplexity_cookies)
     await ask_question(perplexity_cli)
 
-asyncio.run(main())
 
+if __name__ == "__main__":
+    asyncio.run(main())
