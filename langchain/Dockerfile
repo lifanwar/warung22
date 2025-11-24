@@ -3,10 +3,10 @@ FROM python:3.11-slim
 # Direktori kerja
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    libstdc++6 \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && apt-get install -y \
+#     libstdc++6 \
+#     libssl3 \
+#     && rm -rf /var/lib/apt/lists/*
 
 # Supaya output log langsung muncul
 ENV PYTHONUNBUFFERED=1
