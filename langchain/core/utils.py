@@ -21,12 +21,12 @@ def menu_to_toon(menu_data: dict) -> str:
             continue
         
         count = len(items)
-        header = f"{category}[{count}]{{name,harga,is_available}}:"
+        header = f"{category}[{count}]{{id,name,harga,is_available}}:"
         toon_lines.append(header)
         
         for item in items:
             status = "1" if item.get("is_available", True) else "0"
-            line = f"  {item['name']},{item['harga']},{status}"
+            line = f"  {item['id']},{item['name']},{item['harga']},{status}"
             toon_lines.append(line)
     
     return "\n".join(toon_lines)
@@ -35,14 +35,14 @@ def menu_to_toon(menu_data: dict) -> str:
 def category_to_toon(category_name: str, items: list) -> str:
     """Convert single category to TOON format"""
     if not items:
-        return f"{category_name}[0]{{name,harga,is_available}}:"
+        return f"{category_name}[0]{{id,name,harga,is_available}}:"
     
     count = len(items)
-    lines = [f"{category_name}[{count}]{{name,harga,is_available}}:"]
+    lines = [f"{category_name}[{count}]{{id,name,harga,is_available}}:"]
     
     for item in items:
         status = "1" if item.get("is_available", True) else "0"
-        lines.append(f"  {item['name']},{item['harga']},{status}")
+        lines.append(f"  {item['id']},{item['name']},{item['harga']},{status}")
     
     return "\n".join(lines)
 
