@@ -37,7 +37,7 @@ def print_banner():
 async def run_cli_mode():
     """Run in CLI interactive mode"""
     from config.database import get_supabase_client, MenuCacheManager
-    from core.agent import create_menu_agent
+    from core.agents import create_menu_agent
     from core.llm import PerplexityCustomLLM
     from perplexity_async import Client
     
