@@ -45,9 +45,12 @@ class MenuCacheManager:
                 
                 self.cache[category].append({
                     'id': item.get('id'),
+                    'category': item.get('category'),
                     'name': item.get('name'),
                     'harga': item.get('harga'),
-                    'is_available': item.get('is_available', True)
+                    'is_available': item.get('is_available', True),
+                    'created_at': item.get('created_at'),  # ← Added
+                    'updated_at': item.get('updated_at')
                 })
             
             self.last_updated = datetime.now()

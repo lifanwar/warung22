@@ -102,6 +102,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Import router setelah app dibuat
+from events.menu_crud import router as menu_router
+
+app.include_router(menu_router)
 
 @app.get("/")
 async def root():
