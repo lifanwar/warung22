@@ -39,8 +39,14 @@ python main.py cli
 
 ### API Server
 
+**Production:**
 ```bash
 python main.py api
+```
+
+**Development:**
+```bash
+python main.py api --reload
 ```
 
 Server runs on `http://localhost:8000`
