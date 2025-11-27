@@ -51,8 +51,8 @@ class PerplexityCustomLLM(LLM):
                 logger.debug("🔷 Attempting Pro mode (grok-4)...")
                 resp = await self.client.search(
                     prompt,
-                    mode='reasoning',
-                    model='kimi-k2-thinking',
+                    mode='pro',
+                    model='gpt-5.1',
                     sources=['web'],
                     stream=False,
                     follow_up=None,
