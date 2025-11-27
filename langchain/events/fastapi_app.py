@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from config.cookies import perplexity_cookies
 from config.database import get_supabase_client, MenuCacheManager
-from core.agent import create_menu_agent
+from core.agents import create_menu_agent
 from core.llm import PerplexityCustomLLM
 from perplexity_async import Client
 
