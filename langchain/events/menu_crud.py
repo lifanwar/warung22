@@ -113,7 +113,7 @@ async def create_menu_item(
 ):
     """➕ Create new menu item"""
     try:
-        result = await service.create_item(item.dict())
+        result = await service.create_item(item.model_dump())
         return result
     except Exception as e:
         logger.error(f"❌ Create endpoint error: {e}")
