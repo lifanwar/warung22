@@ -75,7 +75,7 @@ curl http://localhost:8000/
 ```bash
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: PujanggaTSDUU@2$$%!!!" \
+  -H 'X-API-Key: PujanggaTSDUU@2$$%!!!' \
   -d '{
 	"question": "What menu items do you have?"
   }'
