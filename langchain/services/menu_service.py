@@ -134,3 +134,47 @@ class MenuService:
         except Exception as e:
             logger.error(f"❌ Error updating availability: {e}")
             raise
+
+    
+    async def bulk_update_availability(self, item_ids: list[int], is_available: bool) -> list[Dict]:
+        """
+        Bulk update availability for multiple items
+        
+        Args:
+            item_ids: List of item IDs to update
+            is_available: True (available) or False (sold out)
+        
+        Returns:
+            List of updated items
+        """
+        try:
+            update_data = {
+                'is_available': is_available,
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            # Update all items in database
+            response = self.supabase.table(self.table)\
+                .update(update_data)\
+                .in_("id", item_ids)\
+                .execute()
+            
+            if response.data:
+                status = "AVAILABLE ✅" if is_available else "SOLD OUT ❌"
+                logger.info(f"🔄 Bulk updated {len(response.data)} items: {status}")
+                logger.info(f"   Updated IDs: {item_ids}")
+                
+                # Refresh cache after bulk update
+                if self.cache_manager:
+                    self.cache_manager.refresh_cache()
+                    logger.info("🔄 Cache auto-refreshed after bulk update")
+                
+                return response.data
+            else:
+                logger.warning(f"⚠️ No items found for IDs: {item_ids}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"❌ Error bulk updating availability: {e}")
+            raise
+        

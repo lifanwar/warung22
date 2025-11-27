@@ -73,6 +73,10 @@ class MenuItemResponse(BaseModel):
     created_at: str
     updated_at: str
 
+class BulkAvailabilityUpdate(BaseModel):
+    """Model for bulk updating availability"""
+    item_ids: list[int] = Field(..., min_length=1, description="List of item IDs to update")
+    is_available: bool = Field(..., description="True = available, False = sold out")
 
 # ============ DEPENDENCY INJECTION ============
 
@@ -150,4 +154,34 @@ async def update_item_availability(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update availability: {str(e)}"
+        )
+
+@router.patch("/bulk/availability", response_model=list[MenuItemResponse])
+async def bulk_update_availability(
+    update: BulkAvailabilityUpdate,
+    service: MenuService = Depends(get_menu_service)
+):
+    """
+    🔄 Bulk update menu items availability
+    
+    **Requires**: X-API-Key header
+    
+    Update multiple items at once (e.g., mark all sold out items)
+    
+    **Example:**
+    ```
+    {
+        "item_ids":,[1]
+        "is_available": false
+    }
+    ```
+    """
+    try:
+        results = await service.bulk_update_availability(update.item_ids, update.is_available)
+        return results
+    except Exception as e:
+        logger.error(f"❌ Bulk update availability error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to bulk update availability: {str(e)}"
         )
