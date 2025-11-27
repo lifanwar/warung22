@@ -202,6 +202,16 @@ curl -X PATCH http://localhost:8000/menu/1/availability \
      -d '{"is_available":false}'
    ```
 
+5. **Update Bulk availability:**
+  ```bash
+  curl -X PATCH http://localhost:8000/menu/bulk/availability \
+    -H 'Content-Type: application/json' \
+    -H 'X-API-Key: PujanggaTSDUU@2$$%!!!' \
+    -d '{
+      "item_ids": [1, 2, 5, 10],
+      "is_available": false
+    }'
+  ```
 ---
 
 **Version:** 1.0.0  
