@@ -31,7 +31,7 @@ curl "http://localhost:8000/cache/stats" \
 curl http://localhost:8000/menu/ -H 'X-API-Key: PujanggaTSDUU@2$$%!!!'
 ```
 
-``` Response
+```json
 [
   {
     "id": 1,
