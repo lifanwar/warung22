@@ -138,24 +138,6 @@ async def get_all_menu_items(
             detail=f"Failed to get items: {str(e)}"
         )
 
-
-@router.patch("/{item_id}/availability", response_model=MenuItemResponse)
-async def update_item_availability(
-    item_id: int,
-    update: AvailabilityUpdate,
-    service: MenuService = Depends(get_menu_service)
-):
-    """🔄 Update menu item availability"""
-    try:
-        result = await service.update_availability(item_id, update.is_available)
-        return result
-    except Exception as e:
-        logger.error(f"❌ Update availability endpoint error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update availability: {str(e)}"
-        )
-
 @router.patch("/bulk/availability", response_model=list[MenuItemResponse])
 async def bulk_update_availability(
     update: BulkAvailabilityUpdate,
@@ -184,4 +166,22 @@ async def bulk_update_availability(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to bulk update availability: {str(e)}"
+        )
+    
+    
+@router.patch("/{item_id}/availability", response_model=MenuItemResponse)
+async def update_item_availability(
+    item_id: int,
+    update: AvailabilityUpdate,
+    service: MenuService = Depends(get_menu_service)
+):
+    """🔄 Update menu item availability"""
+    try:
+        result = await service.update_availability(item_id, update.is_available)
+        return result
+    except Exception as e:
+        logger.error(f"❌ Update availability endpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update availability: {str(e)}"
         )
