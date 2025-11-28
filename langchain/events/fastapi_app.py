@@ -88,12 +88,12 @@ async def lifespan(app: FastAPI):
         # Initialize Perplexity client
         logger.info("🔌 Initializing Perplexity client...")
         
-        perplexity_cli = await Client(perplexity_cookies.perplexity_cookies)
+        # perplexity_cli = await Client(perplexity_cookies.perplexity_cookies)
         logger.info("✅ Perplexity client initialized")
         
         # Create LLM and agent
-        llm = PerplexityCustomLLM(client=perplexity_cli)
-        # llm = DeepSeekCustomLLM(api_key=API_DEEPSEEK)
+        # llm = PerplexityCustomLLM(client=perplexity_cli)
+        llm = DeepSeekCustomLLM(api_key=API_DEEPSEEK)
         # Menu Agent
         agent_graph = create_menu_agent(llm, cache_manager)
         # CRUD agent
