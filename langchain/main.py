@@ -37,7 +37,7 @@ def print_banner():
 async def run_cli_mode():
     """Run in CLI interactive mode"""
     from config.database import get_supabase_client, MenuCacheManager
-    from core.agents import create_menu_agent
+    from core.agents import create_menu_agent, create_crud_agent 
     from core.llm import PerplexityCustomLLM
     from perplexity_async import Client
     
@@ -45,6 +45,7 @@ async def run_cli_mode():
     print("=" * 60)
     print("Commands:")
     print("  .menu - Show all menu")
+    print("  .edit <question> - Edit menu (e.g., .edit ikan habis)") 
     print("  .refresh - Refresh cache from database")
     print("  exit - Exit application")
     print("=" * 60 + "\n")
@@ -69,9 +70,13 @@ async def run_cli_mode():
         logger.error(f"❌ Error init client: {e}")
         return
     
+    # Create LLM and agent
     llm = PerplexityCustomLLM(client=perplexity_cli)
+    # Agent Menu
     agent_graph = create_menu_agent(llm, cache_manager)
-    
+    # Agent CRUD
+    crud_agent_graph = create_crud_agent(llm, cache_manager) 
+
     try:
         while True:
             user_input = input("\n👤 Customer: ").strip()
@@ -84,6 +89,22 @@ async def run_cli_mode():
                 cache_manager.refresh_cache()
                 print("✅ Cache updated from database")
                 continue
+
+            if user_input.lower().startswith(".edit "):
+                edit_question = user_input[6:].strip()
+                
+                try:
+                    print("\n🤖 Processing edit command...")
+                    result = await crud_agent_graph.ainvoke({"input": edit_question})
+                    
+                    message = result.get("result", "Unknown error")
+                    print(f"\n{message}")
+                
+                except Exception as e:
+                    logger.error(f"❌ Edit error: {e}")
+                    print(f"\n❌ Error: {e}")
+                
+                continue 
             
             if not user_input:
                 continue

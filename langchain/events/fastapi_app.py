@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from config.cookies import perplexity_cookies
 from config.database import get_supabase_client, MenuCacheManager
-from core.agents import create_menu_agent
+from core.agents import create_menu_agent, create_crud_agent 
 from core.llm import PerplexityCustomLLM
 from perplexity_async import Client
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # Global variables
 cache_manager = None
 agent_graph = None
+crud_agent_graph = None 
 API_KEY = os.getenv("API_KEY", "default-insecure-key")
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
@@ -45,6 +46,18 @@ class RefreshResponse(BaseModel):
     items_count: int
     success: bool = True
 
+class EditMenuRequest(BaseModel):
+    """Request model for edit menu endpoint"""
+    question: str = Field(..., min_length=1, max_length=200, description="Natural language edit command")
+
+
+class EditMenuResponse(BaseModel):
+    """Response model for edit menu"""
+    question: str
+    message: str
+    success: bool
+
+
 
 def verify_api_key(api_key: str = Security(api_key_header)):
     """Verify API key from header"""
@@ -57,7 +70,7 @@ def verify_api_key(api_key: str = Security(api_key_header)):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager - startup and shutdown"""
-    global cache_manager, agent_graph
+    global cache_manager, agent_graph, crud_agent_graph  
     
     logger.info("🚀 Starting Warung22 Menu API...")
     
@@ -78,7 +91,10 @@ async def lifespan(app: FastAPI):
         
         # Create LLM and agent
         llm = PerplexityCustomLLM(client=perplexity_cli)
+        # Menu Agent
         agent_graph = create_menu_agent(llm, cache_manager)
+        # CRUD agent
+        crud_agent_graph = create_crud_agent(llm, cache_manager)
         
         logger.info("✅ API ready to serve requests")
         
@@ -145,6 +161,41 @@ async def ask_question(
         logger.error(f"❌ Error processing question: {e}")
         raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
 
+@app.post("/edit-menu", response_model=EditMenuResponse)
+async def edit_menu(
+    request: EditMenuRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Edit menu availability via natural language
+    
+    Examples:
+    - "ikan habis"
+    - "jumbo semua ready"
+    - "batagor habis"
+    
+    Requires X-API-Key header for authentication
+    """
+    logger.info(f"📥 [EDIT-MENU] Question: '{request.question}'")
+    
+    try:
+        result = await crud_agent_graph.ainvoke({"input": request.question})
+        
+        message = result.get("result", "Unknown error")
+        success = "✅" in message
+        
+        logger.info(f"✅ [EDIT-MENU] Response: {message[:100]}...")
+        
+        return EditMenuResponse(
+            question=request.question,
+            message=message,
+            success=success
+        )
+    
+    except Exception as e:
+        logger.error(f"❌ [EDIT-MENU] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    
 
 @app.post("/refresh", response_model=RefreshResponse)
 async def refresh_cache(api_key: str = Depends(verify_api_key)):
