@@ -37,6 +37,7 @@ class MenuAgent:
         self.current_input_tokens = 0
         self.current_output_tokens = 0
         self.temperature_routing, self.temperature_answer = temperature_routing, temperature_answer
+
         logger.info("✅ MenuAgent initialized")
     
     async def route_query(self, state: State):
