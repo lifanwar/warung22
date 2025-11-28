@@ -4,7 +4,7 @@ services:
       context: ./langchain
       dockerfile: Dockerfile
     volumes:
-      - ./langchain:/app
+      # - ./langchain:/app
       - ./langchain/perplexity_async:/usr/local/lib/python3.11/site-packages/perplexity_async
     env_file:
       - .env
