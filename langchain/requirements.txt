@@ -9,3 +9,4 @@ perplexity-api
 perplexity-api-async
 curl_cffi
 websocket-client
+openai

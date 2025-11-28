@@ -5,12 +5,13 @@ Core Menu Agent - LangGraph workflow orchestrator
 import logging
 import time
 import json
-from typing import TypedDict, List
+from typing import TypedDict, List, Union
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import StateGraph, START, END
 
 from core.llm import PerplexityCustomLLM
+from core.deepseek_llm import DeepSeekCustomLLM
 from core.utils import menu_to_toon, category_to_toon
 from config.database import MenuCacheManager
 
@@ -30,11 +31,13 @@ class State(TypedDict):
 class MenuAgent:
     """Main agent orchestrator"""
     
-    def __init__(self, llm: PerplexityCustomLLM, cache_manager: MenuCacheManager):
+    def __init__(self, llm: Union[PerplexityCustomLLM, DeepSeekCustomLLM], cache_manager: MenuCacheManager):
         self.llm = llm
         self.cache_manager = cache_manager
         self.current_input_tokens = 0
         self.current_output_tokens = 0
+        temperature_routing: float = 1.0,
+        temperature_answer: float = 1.3   
         logger.info("✅ MenuAgent initialized")
     
     async def route_query(self, state: State):
@@ -43,31 +46,30 @@ class MenuAgent:
         logger.info(f"📥 [ROUTE] Input: '{state['input']}'")
         start_time = time.time()
         
-        routing_prompt = ChatPromptTemplate.from_template(
-            """Identifikasi SEMUA kategori menu yang disebutkan dalam pertanyaan user.
-    Jawab dengan JSON array berisi kategori yang terdeteksi.
+        routing_prompt = ChatPromptTemplate.from_messages([
+    ("system", """Anda adalah sistem routing untuk menu Warung22.
+Tugas Anda: Identifikasi SEMUA kategori menu dari pertanyaan user dan return JSON array.
+
+MAPPING KATA KUNCI:
+- ayam/chicken/geprek/crispy/bakar/rica/goreng/jumbo → protein_ayam
+- ati/ampela/jeroan → ati_ampela
+- ikan/fish → protein_ikan
+- tahu/tempe/telur/egg → protein_ringan
+- nasi goreng/kwetiaw/pempek/batagor/ketoprak/nasi → karbo
+- paket → paket_hemat
+- soto/sop/kuah → menu_kuah
+- minuman/minum dingin/cold/es/ice → minum_cold
+- minuman/minum hangat/hot/panas → minum_hot
+- .menu/semua/all/lengkap → all
+
+ATURAN OUTPUT:
+- Jawab HANYA JSON array, tanpa penjelasan
+- Contoh valid: ["protein_ayam"], ["menu_kuah", "minum_cold"], ["all"]
+- Jika tidak yakin, return ["all"]"""),
     
-    MAPPING KATA KUNCI:
-    - ayam/chicken/geprek/crispy/bakar/rica/goreng/jumbo → protein_ayam
-    - ati/ampela/jeroan → ati_ampela
-    - ikan/fish → protein_ikan
-    - tahu/tempe/telur/egg → protein_ringan
-    - nasi goreng/kwetiaw/pempek/batagor/ketoprak/nasi → karbo
-    - paket → paket_hemat
-    - soto/sop/kuah → menu_kuah
-    - minuman/minum dingin/cold/es/ice → minum_cold
-    - minuman/minum hangat/hot/panas → minum_hot
-    - .menu/semua/all/lengkap → all
-    
-    PERTANYAAN USER: {input}
-    
-    Jawab HANYA JSON array. Contoh valid:
-    - ["protein_ayam", "protein_ringan"]
-    - ["menu_kuah", "minum_cold"]
-    - ["all"]
-    
-    KATEGORI:"""
-        )
+    ("user", "PERTANYAAN: {input}\n\nKATEGORI:")
+])
+
         
         chain = routing_prompt | self.llm | StrOutputParser()
         response = await chain.ainvoke({"input": state["input"]})
@@ -162,24 +164,20 @@ class MenuAgent:
         logger.info(f"💬 [ANSWER] Generating response for {len(categories)} categories...")
         start_time = time.time()
         
-        prompt_template = """Anda adalah pelayan ramah Warung22 di Mesir.
-
-DATA MENU (FORMAT TOON):
-{menu_data}
+        prompt = ChatPromptTemplate.from_messages([
+    ("system", """Anda adalah pelayan ramah Warung22 di Mesir.
 
 CARA BACA FORMAT TOON:
-- category[count]{{field1,field2,field3}}: → kategori dengan jumlah item dan struktur field
+- category[count]{{field1,field2,field3}}: kategori dengan jumlah item dan struktur field
 - Setiap baris data: nama,harga,status
 - Status: 1 = tersedia, 0 = sedang habis
-
-PERTANYAAN USER: {input}
 
 ATURAN PENTING:
 - Jawab dengan bahasa ramah dan natural
 - Semua harga WAJIB format: [angka] EGP (contoh: 90 EGP, 45 EGP, 15 EGP)
 - JANGAN gunakan "Rp" atau mata uang lain
-- Status 0 berarti "sedang habis", Status 1 berarti "tersedia"
-- Jika item tidak ada di data, katakan "tidak tersedia di menu kami"
+- Status 0 = "sedang habis", Status 1 = "tersedia"
+- Jika item tidak ada = "tidak tersedia di menu kami"
 - Untuk ".menu", tampilkan semua dengan format rapi per kategori
 
 CONTOH JAWABAN BENAR:
@@ -187,16 +185,17 @@ CONTOH JAWABAN BENAR:
 "Telur Ceplok sedang habis saat ini."
 
 CONTOH JAWABAN SALAH:
-"Geprek Jumbo tersedia dengan harga Rp90." ❌
+"Geprek Jumbo tersedia dengan harga Rp90." ❌"""),
+    
+    ("user", """DATA MENU (FORMAT TOON):
+{menu_data}
 
-JAWABAN:"""
+PERTANYAAN USER: {input}
 
-
-
+JAWABAN:""")
+])
         
-        prompt = ChatPromptTemplate.from_template(prompt_template)
         chain = prompt | self.llm | StrOutputParser()
-        
         answer = await chain.ainvoke({
             "menu_data": state["relevant_data"],
             "input": state["input"]

@@ -13,6 +13,7 @@ from config.cookies import perplexity_cookies
 from config.database import get_supabase_client, MenuCacheManager
 from core.agents import create_menu_agent, create_crud_agent 
 from core.llm import PerplexityCustomLLM
+from core.deepseek_llm import DeepSeekCustomLLM
 from perplexity_async import Client
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ cache_manager = None
 agent_graph = None
 crud_agent_graph = None 
 API_KEY = os.getenv("API_KEY", "default-insecure-key")
+API_DEEPSEEK = os.getenv("API_DEEPSEEK", "default-API-DEEPSEEK")
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
 
@@ -86,11 +88,13 @@ async def lifespan(app: FastAPI):
         # Initialize Perplexity client
         logger.info("🔌 Initializing Perplexity client...")
         
-        perplexity_cli = await Client(perplexity_cookies.perplexity_cookies)
-        logger.info("✅ Perplexity client initialized")
+        
         
         # Create LLM and agent
-        llm = PerplexityCustomLLM(client=perplexity_cli)
+        # llm = PerplexityCustomLLM(client=perplexity_cli)
+        # perplexity_cli = await Client(perplexity_cookies.perplexity_cookies)
+        llm = DeepSeekCustomLLM(api_key=API_DEEPSEEK)
+        logger.info("✅ LLM client initialized")
         # Menu Agent
         agent_graph = create_menu_agent(llm, cache_manager)
         # CRUD agent

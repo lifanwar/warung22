@@ -41,6 +41,22 @@ class PerplexityCustomLLM(LLM):
         start_time = time.time()
         input_chars = len(prompt)
         input_tokens = estimate_tokens(prompt)
+
+        if isinstance(prompt, list):
+                # Format messages dari ChatPromptTemplate.from_messages
+                # Gabung system + user jadi satu string (Perplexity tidak support messages array)
+                prompt_parts = []
+                for msg in prompt:
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")
+                    if role == "system":
+                        prompt_parts.append(f"SYSTEM INSTRUCTION:\n{content}\n")
+                    elif role == "user":
+                        prompt_parts.append(f"USER QUERY:\n{content}")
+                prompt_str = "\n".join(prompt_parts)
+        else:
+            # Sudah string biasa
+            prompt_str = prompt
         
         logger.info(f"📤 [LLM INPUT] {input_chars} chars | ~{input_tokens} tokens")
         logger.debug(f"📝 Prompt preview: {prompt[:200]}...")
@@ -50,9 +66,9 @@ class PerplexityCustomLLM(LLM):
             try:
                 logger.debug("🔷 Attempting Pro mode (grok-4)...")
                 resp = await self.client.search(
-                    prompt,
+                    prompt_str,
                     mode='pro',
-                    model='gpt-5.1',
+                    model='grok-4',
                     sources=['web'],
                     stream=False,
                     follow_up=None,
@@ -91,7 +107,7 @@ class PerplexityCustomLLM(LLM):
             logger.debug(f"🔶 Using Auto mode...")
             
             resp = await self.client.search(
-                prompt,
+                prompt_str,
                 mode='auto',
                 model=None,
                 sources=['web'],
