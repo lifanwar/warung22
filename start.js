@@ -21,9 +21,13 @@ import {
   
   // Config
   const API_URL = 'http://localhost:8000';
-  const API_KEY = 'PujanggaTSDUU@2$$%!!!';
-  const PORT = parseInt(process.env.PORT || 3000);
-  
+  // const API_KEY = 'PujanggaTSDUU@2$$%!!!';
+  // const PORT = parseInt(process.env.PORT_WA || 3000);
+  // Config
+  // const API_URL = process.env.API_URL || 'http://langchain-api:8000';
+  const API_KEY = process.env.API_KEY || '';
+  const PORT = parseInt(process.env.PORT_WA || '3000', 10);
+
   // Logger
   const logger = pino({ level: 'silent' });
   
