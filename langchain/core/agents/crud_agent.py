@@ -40,7 +40,7 @@ class CRUDAgent:
         self.llm = llm
         self.cache_manager = cache_manager
         # Temperatur Config
-        self.temperature_routing, self.temperature_answer = temperature_routing, 
+        self.temperature_routing, self.temperature_answer = temperature_routing, temperature_answer
         logger.info("✅ CRUDAgent initialized")
     
     async def route_categories(self, state: CRUDState):
