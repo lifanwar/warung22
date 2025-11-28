@@ -6,15 +6,13 @@ services:
     volumes:
       - ./langchain:/app
       - ./langchain/perplexity_async:/usr/local/lib/python3.11/site-packages/perplexity_async
-    ports:
-      - "8000:8000"
     env_file:
       - .env
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-    tty: true
-    stdin_open: true
+    # tty: true
+    # stdin_open: true
     # command: tail -f /dev/null
     command: python main.py api
 
@@ -22,12 +20,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    volumes:
-      - .:/app
-    depends_on:
-      - langchain-api
     env_file:
       - .env       
-    # ports:
-    #   - "3000:3000" 
-    
+    depends_on:
+      - langchain-api
+    networks:
+      - app-network 
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-tunnel
+    restart: unless-stopped
+    command: tunnel --url http://wa:3000
+    depends_on:
+      - wa
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

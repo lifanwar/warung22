@@ -20,7 +20,8 @@ import {
   const __dirname = dirname(__filename);
   
   // Config
-  const API_URL = 'http://localhost:8000';
+  // const API_URL = 'http://localhost:8000';
+  const API_URL = 'http://langchain-api:8000';
   const API_KEY = 'PujanggaTSDUU@2$$%!!!';
   const PORT = parseInt(process.env.PORT_WA || 3000);
 
