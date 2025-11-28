@@ -9,9 +9,12 @@ import os
 import sys
 from dotenv import load_dotenv
 from config.cookies.perplexity_cookies import perplexity_cookies
+from pathlib import Path
 
 # Load environment
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent  # folder parent dari langchain
+env_path = BASE_DIR / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Setup logging
 logging.basicConfig(
