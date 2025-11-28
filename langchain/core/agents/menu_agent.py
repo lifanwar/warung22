@@ -31,13 +31,12 @@ class State(TypedDict):
 class MenuAgent:
     """Main agent orchestrator"""
     
-    def __init__(self, llm: Union[PerplexityCustomLLM, DeepSeekCustomLLM], cache_manager: MenuCacheManager):
+    def __init__(self, llm: Union[PerplexityCustomLLM, DeepSeekCustomLLM], cache_manager: MenuCacheManager, temperature_routing: float = 1.0, temperature_answer: float = 1.3):
         self.llm = llm
         self.cache_manager = cache_manager
         self.current_input_tokens = 0
         self.current_output_tokens = 0
-        temperature_routing: float = 1.0,
-        temperature_answer: float = 1.3   
+        self.temperature_routing, self.temperature_answer = temperature_routing, temperature_answer
         logger.info("✅ MenuAgent initialized")
     
     async def route_query(self, state: State):
@@ -72,7 +71,14 @@ ATURAN OUTPUT:
 
         
         chain = routing_prompt | self.llm | StrOutputParser()
-        response = await chain.ainvoke({"input": state["input"]})
+        try:
+            response = await chain.ainvoke(
+                {"input": state["input"]},
+                config={"temperature": self.temperature_routing}
+            )
+        except (TypeError, KeyError):
+            logger.debug("Temperature not supported, using default")
+            response = await chain.ainvoke({"input": state["input"]})
         
         # Parse JSON with error handling
         try:
@@ -196,10 +202,20 @@ JAWABAN:""")
 ])
         
         chain = prompt | self.llm | StrOutputParser()
-        answer = await chain.ainvoke({
-            "menu_data": state["relevant_data"],
-            "input": state["input"]
-        })
+        try:
+            answer = await chain.ainvoke(
+                {
+                    "menu_data": state["relevant_data"],
+                    "input": state["input"]
+                },
+                config={"temperature": self.temperature_answer}  # ✅ Pakai temperature_answer!
+            )
+        except (TypeError, KeyError, AttributeError):
+            logger.debug("Temperature not supported, using default")
+            answer = await chain.ainvoke({
+                "menu_data": state["relevant_data"],
+                "input": state["input"]
+            })
         
         elapsed = time.time() - start_time
         logger.info(f"✅ [ANSWER] Response generated ({elapsed:.2f}s)")
