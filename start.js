@@ -61,6 +61,20 @@ import {
     }
   }
   
+  // Call Edit Menu API
+  async function editMenuAPI(question) {
+    try {
+      const res = await axios.post(`${API_URL}/edit-menu`, { question }, {
+        headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
+        timeout: 50000
+      });
+      return res.data;
+    } catch (e) {
+      console.error('❌ Edit Menu API Error:', e.message);
+      return null;
+    }
+  }
+
   // Refresh Cache API
   async function refreshCache() {
     try {
@@ -183,6 +197,48 @@ import {
           
           continue;
         }
+
+        // ===== HANDLE .e COMMAND =====
+        if (text?.toLowerCase().startsWith('.e ')) {
+          const question = text.substring(3).trim(); // Ambil text setelah ".e "
+          
+          if (!question) {
+            await sock.sendMessage(chatJid, {
+              text: '⚠️ Format: .e <pertanyaan>\nContoh: .e semua ikan habis',
+              edit: message.key
+            });
+            continue;
+          }
+          
+          console.log(`\n📝 Edit Menu Request: "${question}"`);
+          
+          // Edit pesan .e jadi loading
+          await sock.sendMessage(chatJid, {
+            text: '⏳ Memproses edit menu...',
+            edit: message.key
+          });
+          
+          // Call Edit Menu API
+          const result = await editMenuAPI(question);
+          
+          // Edit pesan .e jadi response final
+          if (result) {
+            await sock.sendMessage(chatJid, {
+              text: `✅ *Menu Updated*\n\n${result.message || 'Perubahan berhasil diterapkan'}`,
+              edit: message.key
+            });
+            console.log('✅ Edit menu success\n');
+          } else {
+            await sock.sendMessage(chatJid, {
+              text: '❌ Gagal edit menu. Silakan coba lagi.',
+              edit: message.key
+            });
+            console.log('❌ Edit menu failed\n');
+          }
+          
+          continue;
+        }
+
         
         // ===== HANDLE .m COMMAND =====
         if (text?.toLowerCase() !== '.m') continue;
