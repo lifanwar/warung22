@@ -13,6 +13,11 @@ services:
       - PORT=8000
     networks:
       - app-network 
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     # tty: true
     # stdin_open: true
     # command: tail -f /dev/null
