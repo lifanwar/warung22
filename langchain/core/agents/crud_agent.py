@@ -35,9 +35,11 @@ class CRUDState(TypedDict):
 class CRUDAgent:
     """AI agent for menu CRUD operations"""
     
-    def __init__(self, llm: PerplexityCustomLLM, cache_manager: MenuCacheManager):
+    def __init__(self, llm: PerplexityCustomLLM, cache_manager: MenuCacheManager, temperature_routing: float = 1.0, temperature_answer: float = 1.3):
         self.llm = llm
         self.cache_manager = cache_manager
+        # Temperatur Config
+        self.temperature_routing, self.temperature_answer = temperature_routing, 
         logger.info("✅ CRUDAgent initialized")
     
     async def route_categories(self, state: CRUDState):
@@ -47,27 +49,39 @@ class CRUDAgent:
         start_time = time.time()
         
         routing_prompt = ChatPromptTemplate.from_template(
-            """Deteksi kategori. Return JSON array.
+            ("system", """
+             Deteksi kategori. Return JSON array.
 
 MAPPING:
 - ayam/chicken/geprek/crispy/bakar/rica/goreng/jumbo → protein_ayam
-- ati/ampela → ati_ampela
+- ati/ampela/jeroan → ati_ampela
 - ikan/fish → protein_ikan
-- tahu/tempe/telur → protein_ringan
-- nasi/kwetiaw/pempek/batagor/ketoprak → karbo
+- tahu/tempe/telur/egg → protein_ringan
+- nasi goreng/kwetiaw/pempek/batagor/ketoprak/nasi → karbo
 - paket → paket_hemat
-- soto/sop → menu_kuah
-- minuman dingin/cold/es → minum_cold
-- minuman hangat/hot → minum_hot
+- soto/sop/kuah → menu_kuah
+- minuman/minum dingin/cold/es/ice → minum_cold
+- minuman/minum hangat/hot/panas → minum_hot
+- .menu/semua/all/lengkap → all
 
-USER: {input}
-
-OUTPUT (JSON array):"""
+ATURAN OUTPUT:
+- Jawab HANYA JSON array, tanpa penjelasan
+- Contoh valid: ["protein_ayam"], ["menu_kuah", "minum_cold"], ["all"]
+- Jika tidak yakin, return ["all"]:
+             """),
+            ("user", "PERTANYAAN: {input}")
         )
         
         try:
             chain = routing_prompt | self.llm | StrOutputParser()
-            response = await chain.ainvoke({"input": state["input"]})
+            try:
+                response = await chain.ainvoke(
+                    {"input": state["input"]},
+                    config={"temperature": self.temperature_routing}
+                )
+            except (TypeError, KeyError):
+                logger.debug("Temperature not supported, using default")
+                response = await chain.ainvoke({"input": state["input"]})
             
             cleaned = response.strip()
             if cleaned.startswith("```"):
@@ -160,10 +174,20 @@ OUTPUT:
         
         try:
             chain = extract_prompt | self.llm | StrOutputParser()
-            response = await chain.ainvoke({
-                "menu_data": state["menu_data"],
-                "input": state["input"]
-            })
+            try:
+                response = await chain.ainvoke(
+                    {
+                        "menu_data": state["menu_data"],
+                        "input": state["input"]
+                    },
+                    config={"temperature": self.temperature_answer}  # ✅ Pakai temperature_answer!
+                )
+            except (TypeError, KeyError, AttributeError):
+                logger.debug("Temperature not supported, using default")
+                response = await chain.ainvoke({
+                    "menu_data": state["menu_data"],
+                    "input": state["input"]
+                })
             
             logger.info(f"📤 [CRUD-EXTRACT] Response: '{response}'")
             
