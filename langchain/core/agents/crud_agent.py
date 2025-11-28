@@ -7,12 +7,13 @@ import logging
 import time
 import json
 import re
-from typing import TypedDict, List, Dict, Any, Optional
+from typing import TypedDict, List, Dict, Any, Optional, Union
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import StateGraph, START, END
 
 from core.llm import PerplexityCustomLLM
+from core.deepseek_llm import DeepSeekCustomLLM
 from core.utils import menu_to_toon, category_to_toon
 from config.database import MenuCacheManager, get_supabase_client
 from services.menu_service import MenuService
@@ -35,7 +36,7 @@ class CRUDState(TypedDict):
 class CRUDAgent:
     """AI agent for menu CRUD operations"""
     
-    def __init__(self, llm: PerplexityCustomLLM, cache_manager: MenuCacheManager, temperature_routing: float = 1.0, temperature_answer: float = 1.3):
+    def __init__(self, llm: Union[PerplexityCustomLLM, DeepSeekCustomLLM], cache_manager: MenuCacheManager, temperature_routing: float = 1.0, temperature_answer: float = 1.3):
         self.llm = llm
         self.cache_manager = cache_manager
         # Temperatur Config
@@ -180,7 +181,7 @@ OUTPUT:
                         "menu_data": state["menu_data"],
                         "input": state["input"]
                     },
-                    config={"temperature": self.temperature_answer}  # ✅ Pakai temperature_answer!
+                    config={"temperature": self.temperature_routing}  # ✅ Pakai temperature_answer!
                 )
             except (TypeError, KeyError, AttributeError):
                 logger.debug("Temperature not supported, using default")
