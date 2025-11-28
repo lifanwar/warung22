@@ -66,7 +66,7 @@ ATURAN OUTPUT:
 - Contoh valid: ["protein_ayam"], ["menu_kuah", "minum_cold"], ["all"]
 - Jika tidak yakin, return ["all"]"""),
     
-    ("user", "PERTANYAAN: {input}")
+    ("user", "PERTANYAAN: {input}\n\nKATEGORI:")
 ])
 
         
