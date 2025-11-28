@@ -51,7 +51,8 @@ class MenuItemCreate(BaseModel):
         valid_categories = [
             'protein_ayam', 'ati_ampela', 'protein_ikan', 
             'protein_ringan', 'karbo', 'paket_hemat',
-            'menu_kuah', 'minum_cold', 'minum_hot'
+            'menu_kuah', 'minum_cold', 'minum_hot',
+            'jajanan'
         ]
         if v not in valid_categories:
             raise ValueError(f"Category must be one of: {', '.join(valid_categories)}")

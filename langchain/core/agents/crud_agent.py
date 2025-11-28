@@ -61,6 +61,7 @@ class CRUDAgent:
     - nasi goreng/kwetiaw/pempek/batagor/ketoprak/nasi → karbo
     - paket → paket_hemat
     - soto/sop/kuah → menu_kuah
+    - makaroni/donat/piscok → jajanan
     - minuman/minum dingin/cold/es/ice → minum_cold
     - minuman/minum hangat/hot/panas → minum_hot
     - .menu/semua/all/lengkap → all
@@ -93,7 +94,7 @@ class CRUDAgent:
                 categories = ["all"]
 
             valid = ["protein_ayam", "ati_ampela", "protein_ikan", "protein_ringan",
-                    "karbo", "paket_hemat", "menu_kuah", "minum_cold", "minum_hot", "all"]
+                    "karbo", "paket_hemat", "menu_kuah", 'jajanan', "minum_cold", "minum_hot", "all"]
 
             categories = [c for c in categories if c in valid] or ["all"]
 
