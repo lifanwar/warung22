@@ -1,14 +1,13 @@
 # core/agents/crud_agent.py
 """
 CRUD Agent - Natural language to menu availability updates
-Handles AI-powered bulk menu status changes
 """
 
 import logging
 import time
 import json
 import re
-from typing import TypedDict, List
+from typing import TypedDict, List, Dict, Any, Optional
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import StateGraph, START, END
@@ -25,14 +24,16 @@ class CRUDState(TypedDict):
     """LangGraph state for CRUD operations"""
     input: str
     categories: List[str]
-    relevant_data: str
-    formatted_ids: str
-    updated_toon: str  # 🔥 Added: TOON dari hasil update
+    menu_data: str
+    parsed_ids: Optional[List[int]]
+    target_status: Optional[bool]
+    updated_items: Optional[List[Dict[str, Any]]]
+    error: Optional[str]
     result: str
 
 
 class CRUDAgent:
-    """AI agent for menu CRUD operations via natural language"""
+    """AI agent for menu CRUD operations"""
     
     def __init__(self, llm: PerplexityCustomLLM, cache_manager: MenuCacheManager):
         self.llm = llm
@@ -40,319 +41,248 @@ class CRUDAgent:
         logger.info("✅ CRUDAgent initialized")
     
     async def route_categories(self, state: CRUDState):
-        """Node 1: Detect categories"""
+        """Node 1: Detect category"""
         logger.info("=" * 60)
         logger.info(f"📥 [CRUD-ROUTE] Input: '{state['input']}'")
         start_time = time.time()
         
         routing_prompt = ChatPromptTemplate.from_template(
-            """Identifikasi SEMUA kategori menu yang disebutkan dalam permintaan user.
-Jawab dengan JSON array berisi kategori yang terdeteksi.
+            """Deteksi kategori. Return JSON array.
 
-MAPPING KATA KUNCI:
+MAPPING:
 - ayam/chicken/geprek/crispy/bakar/rica/goreng/jumbo → protein_ayam
-- ati/ampela/jeroan → ati_ampela
+- ati/ampela → ati_ampela
 - ikan/fish → protein_ikan
-- tahu/tempe/telur/egg → protein_ringan
-- nasi goreng/kwetiaw/pempek/batagor/ketoprak/nasi → karbo
+- tahu/tempe/telur → protein_ringan
+- nasi/kwetiaw/pempek/batagor/ketoprak → karbo
 - paket → paket_hemat
-- soto/sop/kuah → menu_kuah
-- minuman/minum dingin/cold/es/ice → minum_cold
-- minuman/minum hangat/hot/panas → minum_hot
-- semua/all/lengkap → all
+- soto/sop → menu_kuah
+- minuman dingin/cold/es → minum_cold
+- minuman hangat/hot → minum_hot
 
-PERMINTAAN USER: {input}
+USER: {input}
 
-Jawab HANYA JSON array. Contoh valid:
-- ["protein_ayam", "protein_ringan"]
-- ["menu_kuah", "minum_cold"]
-- ["all"]
-
-KATEGORI:"""
+OUTPUT (JSON array):"""
         )
         
-        chain = routing_prompt | self.llm | StrOutputParser()
-        response = await chain.ainvoke({"input": state["input"]})
-        
         try:
+            chain = routing_prompt | self.llm | StrOutputParser()
+            response = await chain.ainvoke({"input": state["input"]})
+            
             cleaned = response.strip()
-            
             if cleaned.startswith("```"):
-                parts = cleaned.split("```")
-                if len(parts) >= 3:
-                    cleaned = parts[1]
-                    lines = cleaned.strip().split("\n")
-                    if lines[0].strip().lower() in ["json", "python", "text"]:
-                        cleaned = "\n".join(lines[1:])
+                cleaned = cleaned.split("```")[1].split("\n", 1)[-1]
             
-            cleaned = cleaned.strip()
-            categories = json.loads(cleaned)
-            
+            categories = json.loads(cleaned.strip())
             if not isinstance(categories, list):
-                logger.warning(f"⚠️ Response not a list: {response}")
                 categories = ["all"]
-                
-        except (json.JSONDecodeError, IndexError) as e:
-            logger.warning(f"⚠️ JSON parse failed ({e}), fallback to 'all'")
-            categories = ["all"]
-        
-        valid_categories = [
-            "protein_ayam", "ati_ampela", "protein_ikan", "protein_ringan",
-            "karbo", "paket_hemat", "menu_kuah", "minum_cold", "minum_hot", "all"
-        ]
-        
-        categories = [c for c in categories if c in valid_categories]
-        
-        if not categories:
-            logger.warning(f"⚠️ No valid categories found, fallback to 'all'")
-            categories = ["all"]
-        
-        elapsed = time.time() - start_time
-        logger.info(f"✅ [CRUD-ROUTE] Detected {len(categories)} categories: {categories} ({elapsed:.2f}s)")
-        
-        return {"categories": categories}
+            
+            valid = ["protein_ayam", "ati_ampela", "protein_ikan", "protein_ringan",
+                    "karbo", "paket_hemat", "menu_kuah", "minum_cold", "minum_hot", "all"]
+            
+            categories = [c for c in categories if c in valid] or ["all"]
+            
+            elapsed = time.time() - start_time
+            logger.info(f"✅ [CRUD-ROUTE] Categories: {categories} ({elapsed:.2f}s)")
+            
+            return {"categories": categories}
+            
+        except Exception as e:
+            logger.error(f"❌ [CRUD-ROUTE] Error: {e}, fallback to 'all'")
+            return {"categories": ["all"]}
     
-    def filter_menu_data(self, state: CRUDState):
-        """Node 2: Filter menu data by categories"""
+    def load_menu_data(self, state: CRUDState):
+        """Node 2: Load menu by category"""
         categories = state["categories"]
-        logger.info(f"🔍 [CRUD-FILTER] Processing {len(categories)} categories: {categories}")
+        logger.info(f"🔍 [CRUD-LOAD] Loading: {categories}")
         start_time = time.time()
         
         menu_data = self.cache_manager.get_menu_data()
         
+        # Jika "all", kirim semua data
         if "all" in categories:
-            toon_data = menu_to_toon(menu_data)
-            total_items = sum(len(items) for items in menu_data.values())
-            logger.info(f"📊 [CRUD-FILTER] ALL menu ({total_items} items) from cache")
+            all_items = [item for items in menu_data.values() for item in items]
         else:
-            aggregated_data = {}
-            total_items = 0
-            
-            for category in categories:
-                items = self.cache_manager.get_category_data(category)
+            all_items = []
+            for cat in categories:
+                items = self.cache_manager.get_category_data(cat)
                 if items:
-                    aggregated_data[category] = items
-                    total_items += len(items)
-                    logger.info(f"  ├─ {category}: {len(items)} items")
+                    all_items.extend(items)
             
-            if not aggregated_data:
-                logger.warning(f"⚠️ No data found for categories: {categories}")
-                toon_data = "# No menu data available"
-            else:
-                toon_parts = []
-                for category, items in aggregated_data.items():
-                    toon_parts.append(category_to_toon(category, items))
-                
-                toon_data = "\n\n".join(toon_parts)
-                logger.info(f"📊 [CRUD-FILTER] Aggregated {total_items} items from {len(categories)} categories")
+            # Fallback ke ALL jika kategori kosong
+            if not all_items:
+                logger.warning(f"⚠️ No data for {categories}, loading ALL")
+                all_items = [item for items in menu_data.values() for item in items]
+        
+        # Format simple: ID,Name
+        simple_toon = "\n".join([f"{item['id']},{item['name']}" for item in all_items])
         
         elapsed = time.time() - start_time
-        logger.info(f"✅ [CRUD-FILTER] Converted to TOON ({elapsed:.4f}s)")
+        logger.info(f"✅ [CRUD-LOAD] Loaded {len(all_items)} items ({elapsed:.4f}s)")
         
-        return {"relevant_data": toon_data}
+        return {"menu_data": simple_toon}
     
     async def extract_ids(self, state: CRUDState):
-        """Node 3: Extract IDs (simple format)"""
+        """Node 3: Extract IDs with clarification check"""
         logger.info(f"🤖 [CRUD-EXTRACT] Extracting IDs...")
         start_time = time.time()
         
-        if state["relevant_data"] == "# No menu data available":
-            return {"formatted_ids": "", "result": "Menu tidak tersedia."}
-        
         extract_prompt = ChatPromptTemplate.from_template(
-            """Extract menu IDs.
-    
-    DATA:
-    {menu_data}
-    
-    REQUEST: {input}
-    
-    RULES:
-    1. Find items matching the request keyword
-    2. "ikan" → ONLY items with "Ikan" in name
-    3. "ayam" → ONLY items with "Ayam" in name
-    4. "jumbo" → ONLY items with "Jumbo" in name
-    5. Status: "habis"/"sold"/"kosong"=false, "ada"/"ready"/"tersedia"=true
-    
-    EXAMPLES:
-    Data: 14,Ikan Goreng | 15,Ikan Bakar | 1,Ayam Crispy
-    Request: ikan ada → 14,15,true (NOT 1!)
-    
-    Data: 1,Ayam Jumbo | 2,Geprek Jumbo | 3,Crispy
-    Request: jumbo habis → 1,2,false (NOT 3!)
-    
-    CRITICAL: Extract ONLY items matching the keyword!
-    
-    OUTPUT (IDs,status):"""
+            """Extract menu IDs or ask clarification.
+
+DATA:
+{menu_data}
+
+REQUEST: {input}
+
+LOGIC:
+1. Generic keyword without "semua" (e.g., "ikan habis", "ayam ada") → ASK: "ikan apa?"
+2. Specific 2+ words (e.g., "ikan goreng", "ayam rica") → Return ONLY that item's ID
+3. Keyword + "semua" (e.g., "ikan semua", "ayam semua") → Return ALL matching IDs
+4. "semua" alone → Return ALL IDs
+
+EXAMPLES:
+- "ikan habis" → CLARIFY:Ikan apa yang habis? (Ikan Goreng, Ikan Bakar, dll)
+- "ayam ada" → CLARIFY:Ayam apa yang tersedia?
+- "ikan goreng habis" → 14,false
+- "ayam rica habis" → 7,false
+- "ikan semua ready" → 14,15,16,17,true
+- "ayam semua habis" → 1,2,3,4,5,6,7,8,9,10,false
+- "semua ready" → 1,2,3,...,53,true
+
+Status: habis=false, ada/ready=true
+
+OUTPUT:
+- IDs format: "14,15,false"
+- Clarify format: "CLARIFY:Menu apa yang ...?"
+"""
         )
         
         try:
             chain = extract_prompt | self.llm | StrOutputParser()
             response = await chain.ainvoke({
-                "menu_data": state["relevant_data"],
+                "menu_data": state["menu_data"],
                 "input": state["input"]
             })
             
-            elapsed_ai = time.time() - start_time
-            logger.info(f"⏱️ [CRUD-EXTRACT] AI: {elapsed_ai:.2f}s")
             logger.info(f"📤 [CRUD-EXTRACT] Response: '{response}'")
             
-            # Parse format: "14,15,16,17,false"
+            # Check if AI asks for clarification
+            if response.startswith("CLARIFY:"):
+                clarification = response.replace("CLARIFY:", "").strip()
+                return {
+                    "parsed_ids": None,
+                    "target_status": None,
+                    "error": "need_clarification",
+                    "result": f"❓ {clarification}"
+                }
+            
+            # Parse IDs
             pattern = r'(\d+(?:,\d+)*),(true|false)'
             match = re.search(pattern, response, re.IGNORECASE)
             
-            if match:
-                ids_str = match.group(1)
-                status_str = match.group(2).lower()
-                
-                item_ids = [int(x.strip()) for x in ids_str.split(',')]
-                is_available = (status_str == 'true')
-                
-                logger.info(f"✅ [CRUD-EXTRACT] Parsed: IDs={item_ids}, Available={is_available}")
-                
-                supabase = get_supabase_client()
-                service = MenuService(supabase, cache_manager=self.cache_manager)
-                updated_items = await service.bulk_update_availability(item_ids, is_available)
-                
-                if updated_items:
-                    toon_lines = []
-                    for item in updated_items:
-                        status = "1" if item['is_available'] else "0"
-                        toon_lines.append(f"{item['id']},{item['name']},{status}")
-                    
-                    logger.info(f"✅ [CRUD-EXTRACT] Updated {len(updated_items)} items")
-                    return {"formatted_ids": "success", "updated_toon": "\n".join(toon_lines)}
-                else:
-                    return {"formatted_ids": "", "result": "Update gagal."}
-            else:
-                logger.error(f"❌ Parse failed: '{response}'")
-                return {"formatted_ids": "", "result": f"Format tidak valid: {response}"}
-        
+            if not match:
+                return {
+                    "parsed_ids": None,
+                    "target_status": None,
+                    "error": "parse_failed",
+                    "result": f"❌ Parse gagal: {response[:100]}"
+                }
+            
+            ids_str, status_str = match.groups()
+            item_ids = [int(x.strip()) for x in ids_str.split(',')]
+            is_available = (status_str.lower() == 'true')
+            
+            logger.info(f"✅ [CRUD-EXTRACT] {len(item_ids)} items, Status: {'TERSEDIA' if is_available else 'HABIS'}")
+            
+            return {
+                "parsed_ids": item_ids,
+                "target_status": is_available
+            }
+            
         except Exception as e:
             logger.error(f"❌ [CRUD-EXTRACT] Error: {e}")
-            return {"formatted_ids": "", "result": f"Error: {str(e)}"}
-    
-
-
+            return {
+                "parsed_ids": None,
+                "target_status": None,
+                "error": str(e),
+                "result": f"❌ Error: {str(e)}"
+            }
     
     async def execute_update(self, state: CRUDState):
-        """Node 4: Execute bulk update to database"""
-        formatted_ids = state.get("formatted_ids", "")
+        """Node 4: Update database"""
+        logger.info(f"⚙️ [CRUD-EXECUTE] Updating database...")
         
-        if not formatted_ids:
-            return {"result": state.get("result", "Menu tidak ditemukan.")}
-        
-        logger.info(f"⚙️ [CRUD-EXECUTE] Executing update: {formatted_ids}")
+        if not state.get("parsed_ids") or state.get("target_status") is None:
+            error_msg = state.get("result", "❌ No data to update")
+            logger.warning(f"⚠️ [CRUD-EXECUTE] Skipped: {state.get('error')}")
+            return {"result": error_msg}
         
         try:
-            match = re.match(r'\[([0-9,]+)\],([01])', formatted_ids)
-            if not match:
-                logger.error(f"❌ [CRUD-EXECUTE] Invalid format: {formatted_ids}")
-                return {"result": "Format parsing gagal."}
-            
-            item_ids = [int(id_) for id_ in match.group(1).split(',')]
-            is_available = (match.group(2) == '1')
-            
-            logger.info(f"📊 [CRUD-EXECUTE] IDs={item_ids}, Available={is_available}")
-            
             supabase = get_supabase_client()
             service = MenuService(supabase, cache_manager=self.cache_manager)
             
-            updated_items = await service.bulk_update_availability(item_ids, is_available)
+            updated_items = await service.bulk_update_availability(
+                state["parsed_ids"],
+                state["target_status"]
+            )
             
-            if updated_items:
-                # 🔥 Convert hasil update ke TOON (hanya id, name, is_available)
-                toon_lines = []
-                for item in updated_items:
-                    status = "1" if item['is_available'] else "0"
-                    toon_lines.append(f"{item['id']},{item['name']},{status}")
-                
-                updated_toon = "\n".join(toon_lines)
-                
-                logger.info(f"✅ [CRUD-EXECUTE] Success: {len(updated_items)} items updated")
-                logger.info(f"📋 [CRUD-EXECUTE] Updated TOON:\n{updated_toon}")
-                
-                return {"updated_toon": updated_toon}
-            else:
-                logger.warning("⚠️ [CRUD-EXECUTE] No items updated")
-                return {"result": "Ada masalah ketika update data."}
-        
+            if not updated_items:
+                return {
+                    "updated_items": [],
+                    "error": "update_failed",
+                    "result": "❌ Update gagal"
+                }
+            
+            logger.info(f"✅ [CRUD-EXECUTE] Updated {len(updated_items)} items")
+            for item in updated_items:
+                icon = "✅" if item['is_available'] else "❌"
+                logger.info(f"   {icon} [{item['id']}] {item['name']}")
+            
+            return {"updated_items": updated_items}
+            
         except Exception as e:
             logger.error(f"❌ [CRUD-EXECUTE] Error: {e}")
-            return {"result": f"Error saat update: {str(e)}"}
+            return {
+                "updated_items": [],
+                "error": str(e),
+                "result": f"❌ DB Error: {str(e)}"
+            }
     
     async def generate_message(self, state: CRUDState):
-        """Node 5: AI generate natural message from update result"""
-        updated_toon = state.get("updated_toon", "")
+        """Node 5: Generate response"""
+        updated_items = state.get("updated_items", [])
         
-        if not updated_toon:
-            # Jika tidak ada updated_toon, return result yang sudah ada
-            return {"result": state.get("result", "Update gagal.")}
+        if not updated_items:
+            return {"result": state.get("result", "❌ Update gagal")}
         
-        logger.info(f"💬 [CRUD-MESSAGE] Generating natural message...")
-        start_time = time.time()
+        status_text = "tersedia" if updated_items[0]['is_available'] else "habis"
+        msg = f"✅ Berhasil update {len(updated_items)} menu jadi {status_text}:\n"
+        msg += "\n".join([f"- {item['name']}" for item in updated_items])
         
-        message_prompt = ChatPromptTemplate.from_template(
-            """Anda adalah sistem notifikasi update menu.
-
-DATA HASIL UPDATE (TOON):
-{updated_data}
-
-FORMAT:
-- id,nama_menu,status
-- Status: 1 = tersedia, 0 = habis
-
-USER REQUEST: {input}
-
-TASK:
-Buat pesan natural bahwa menu sudah di-update.
-
-TEMPLATE:
-✅ Berhasil update [jumlah] menu jadi [status]:
- - [Nama Menu 1]
- - [Nama Menu 2]
- - ...
-
-ATURAN:
-- Status "1" → "tersedia"
-- Status "0" → "habis"
-- List semua nama menu (tanpa ID)
-- Bahasa Indonesia, ramah
-
-OUTPUT:"""
-        )
-        
-        chain = message_prompt | self.llm | StrOutputParser()
-        response = await chain.ainvoke({
-            "updated_data": updated_toon,
-            "input": state["input"]
-        })
-        
-        elapsed = time.time() - start_time
-        logger.info(f"⏱️ [CRUD-MESSAGE] Message generated ({elapsed:.2f}s)")
-        
-        return {"result": response.strip()}
+        logger.info(f"✅ [CRUD-MESSAGE] Generated message")
+        return {"result": msg}
 
 
 def create_crud_agent(llm: PerplexityCustomLLM, cache_manager: MenuCacheManager):
-    """Build and compile LangGraph workflow for CRUD agent"""
-    logger.info("🔧 Building CRUD Agent workflow...")
+    """Build CRUD workflow"""
+    logger.info("🔧 Building CRUD Agent...")
     
     agent = CRUDAgent(llm, cache_manager)
     workflow = StateGraph(CRUDState)
     
     workflow.add_node("route", agent.route_categories)
-    workflow.add_node("filter", agent.filter_menu_data)
+    workflow.add_node("load", agent.load_menu_data)
     workflow.add_node("extract", agent.extract_ids)
     workflow.add_node("execute", agent.execute_update)
-    workflow.add_node("message", agent.generate_message)  # 🔥 Added
+    workflow.add_node("message", agent.generate_message)
     
     workflow.add_edge(START, "route")
-    workflow.add_edge("route", "filter")
-    workflow.add_edge("filter", "extract")
+    workflow.add_edge("route", "load")
+    workflow.add_edge("load", "extract")
     workflow.add_edge("extract", "execute")
-    workflow.add_edge("execute", "message")  # 🔥 Added
-    workflow.add_edge("message", END)  # 🔥 Changed
+    workflow.add_edge("execute", "message")
+    workflow.add_edge("message", END)
     
-    logger.info("✅ CRUD Agent workflow compiled")
+    logger.info("✅ CRUD Agent compiled")
     return workflow.compile()
