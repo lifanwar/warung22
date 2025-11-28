@@ -142,36 +142,20 @@ ATURAN OUTPUT:
         logger.info(f"🤖 [CRUD-EXTRACT] Extracting IDs...")
         start_time = time.time()
         
-        extract_prompt = ChatPromptTemplate.from_template(
-            """Extract menu IDs or ask clarification.
+        extract_prompt = ChatPromptTemplate.from_messages([
+    ("system", """Extract menu IDs Warung22.
 
-DATA:
-{menu_data}
+Logic:
+- Generic ("ikan habis") → CLARIFY:Ikan apa?
+- Specific ("ikan goreng") → Return ID only
+- + "semua" → Return ALL matching
+- "semua" alone → Return ALL
 
-REQUEST: {input}
-
-LOGIC:
-1. Generic keyword without "semua" (e.g., "ikan habis", "ayam ada") → ASK: "ikan apa?"
-2. Specific 2+ words (e.g., "ikan goreng", "ayam rica") → Return ONLY that item's ID
-3. Keyword + "semua" (e.g., "ikan semua", "ayam semua") → Return ALL matching IDs
-4. "semua" alone → Return ALL IDs
-
-EXAMPLES:
-- "ikan habis" → CLARIFY:Ikan apa yang habis? (Ikan Goreng, Ikan Bakar, dll)
-- "ayam ada" → CLARIFY:Ayam apa yang tersedia?
-- "ikan goreng habis" → 14,false
-- "ayam rica habis" → 7,false
-- "ikan semua ready" → 14,15,16,17,true
-- "ayam semua habis" → 1,2,3,4,5,6,7,8,9,10,false
-- "semua ready" → 1,2,3,...,53,true
-
-Status: habis=false, ada/ready=true
-
-OUTPUT:
-- IDs format: "14,15,false"
-- Clarify format: "CLARIFY:Menu apa yang ...?"
-"""
-        )
+Format: "id1,id2,status" OR "CLARIFY:Question?"
+Status: habis=false, ada=true"""),
+    
+    ("user", "DATA: {menu_data}\nREQUEST: {input}")
+])
         
         try:
             chain = extract_prompt | self.llm | StrOutputParser()
