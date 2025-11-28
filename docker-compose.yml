@@ -23,7 +23,7 @@ services:
     env_file:
       - .env       
     volumes:
-      - ./session1:/app
+      - ./session1:/app/session1
     depends_on:
       - langchain-api
     networks:
