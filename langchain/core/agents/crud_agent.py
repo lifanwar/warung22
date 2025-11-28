@@ -48,31 +48,31 @@ class CRUDAgent:
         logger.info("=" * 60)
         logger.info(f"📥 [CRUD-ROUTE] Input: '{state['input']}'")
         start_time = time.time()
-        
-        routing_prompt = ChatPromptTemplate.from_template(
-            ("system", """
-             Deteksi kategori. Return JSON array.
 
-MAPPING:
-- ayam/chicken/geprek/crispy/bakar/rica/goreng/jumbo → protein_ayam
-- ati/ampela/jeroan → ati_ampela
-- ikan/fish → protein_ikan
-- tahu/tempe/telur/egg → protein_ringan
-- nasi goreng/kwetiaw/pempek/batagor/ketoprak/nasi → karbo
-- paket → paket_hemat
-- soto/sop/kuah → menu_kuah
-- minuman/minum dingin/cold/es/ice → minum_cold
-- minuman/minum hangat/hot/panas → minum_hot
-- .menu/semua/all/lengkap → all
+        # ✅ FIXED: from_messages dengan bracket []
+        routing_prompt = ChatPromptTemplate.from_messages([
+            ("system", """Deteksi kategori. Return JSON array.
 
-ATURAN OUTPUT:
-- Jawab HANYA JSON array, tanpa penjelasan
-- Contoh valid: ["protein_ayam"], ["menu_kuah", "minum_cold"], ["all"]
-- Jika tidak yakin, return ["all"]:
-             """),
-            ("user", "PERTANYAAN: {input}")
-        )
-        
+    MAPPING:
+    - ayam/chicken/geprek/crispy/bakar/rica/goreng/jumbo → protein_ayam
+    - ati/ampela/jeroan → ati_ampela
+    - ikan/fish → protein_ikan
+    - tahu/tempe/telur/egg → protein_ringan
+    - nasi goreng/kwetiaw/pempek/batagor/ketoprak/nasi → karbo
+    - paket → paket_hemat
+    - soto/sop/kuah → menu_kuah
+    - minuman/minum dingin/cold/es/ice → minum_cold
+    - minuman/minum hangat/hot/panas → minum_hot
+    - .menu/semua/all/lengkap → all
+
+    ATURAN OUTPUT:
+    - Jawab HANYA JSON array, tanpa penjelasan
+    - Contoh valid: ["protein_ayam"], ["menu_kuah", "minum_cold"], ["all"]
+    - Jika tidak yakin, return ["all"]"""),
+
+            ("user", "PERTANYAAN: {input}\n\nKATEGORI:")
+        ])
+
         try:
             chain = routing_prompt | self.llm | StrOutputParser()
             try:
@@ -80,31 +80,32 @@ ATURAN OUTPUT:
                     {"input": state["input"]},
                     config={"temperature": self.temperature_routing}
                 )
-            except (TypeError, KeyError):
+            except (TypeError, KeyError, AttributeError):
                 logger.debug("Temperature not supported, using default")
                 response = await chain.ainvoke({"input": state["input"]})
-            
+
             cleaned = response.strip()
             if cleaned.startswith("```"):
                 cleaned = cleaned.split("```")[1].split("\n", 1)[-1]
-            
+
             categories = json.loads(cleaned.strip())
             if not isinstance(categories, list):
                 categories = ["all"]
-            
+
             valid = ["protein_ayam", "ati_ampela", "protein_ikan", "protein_ringan",
                     "karbo", "paket_hemat", "menu_kuah", "minum_cold", "minum_hot", "all"]
-            
+
             categories = [c for c in categories if c in valid] or ["all"]
-            
+
             elapsed = time.time() - start_time
             logger.info(f"✅ [CRUD-ROUTE] Categories: {categories} ({elapsed:.2f}s)")
-            
+
             return {"categories": categories}
-            
+
         except Exception as e:
             logger.error(f"❌ [CRUD-ROUTE] Error: {e}, fallback to 'all'")
             return {"categories": ["all"]}
+
     
     def load_menu_data(self, state: CRUDState):
         """Node 2: Load menu by category"""
@@ -152,7 +153,7 @@ Logic:
 - "semua" alone → Return ALL
 
 Format: "id1,id2,status" OR "CLARIFY:Question?"
-Status: habis=false, ada=true"""),
+Status: habis/kosong=false, ada/ready/tersedia=true"""),
     
     ("user", "DATA: {menu_data}\nREQUEST: {input}")
 ])
@@ -165,7 +166,7 @@ Status: habis=false, ada=true"""),
                         "menu_data": state["menu_data"],
                         "input": state["input"]
                     },
-                    config={"temperature": self.temperature_routing}  # ✅ Pakai temperature_answer!
+                    config={"temperature": self.temperature_routing} 
                 )
             except (TypeError, KeyError, AttributeError):
                 logger.debug("Temperature not supported, using default")
