@@ -11,6 +11,8 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
+    networks:
+      - app-network 
     # tty: true
     # stdin_open: true
     # command: tail -f /dev/null
