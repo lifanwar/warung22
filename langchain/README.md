@@ -72,12 +72,23 @@ curl http://localhost:8000/
 
 #### Ask Question (AI Chatbot)
 
+Ask Menu:
 ```bash
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
   -H 'X-API-Key: PujanggaTSDUU@2$$%!!!' \
   -d '{
 	"question": "What menu items do you have?"
+  }'
+```
+
+Edit Availability:
+```bash
+curl -X POST "http://localhost:8000/edit-menu" \
+  -H "Content-Type: application/json" \
+  -H 'X-API-Key: PujanggaTSDUU@2$$%!!!' \
+  -d '{
+    "question": "semua ikan habis"
   }'
 ```
 
