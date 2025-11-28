@@ -10,3 +10,5 @@ RUN npm install
 
 # Copy seluruh source code
 COPY . .
+
+CMD ["npm", "run", "start"]
