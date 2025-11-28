@@ -17,3 +17,17 @@ services:
     stdin_open: true
     # command: tail -f /dev/null
     command: python main.py api
+
+  wa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    depends_on:
+      - langchain-api
+    env_file:
+      - .env       
+    # ports:
+    #   - "3000:3000" 
+    
