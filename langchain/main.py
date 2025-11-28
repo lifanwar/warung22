@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 from dotenv import load_dotenv
-# from config.cookies.perplexity_cookies import perplexity_cookies
+from config.cookies.perplexity_cookies import perplexity_cookies
 from pathlib import Path
 
 # Load environment
@@ -37,91 +37,91 @@ def print_banner():
     print("=" * 60 + "\n")
 
 
-# async def run_cli_mode():
-#     """Run in CLI interactive mode"""
-#     from config.database import get_supabase_client, MenuCacheManager
-#     from core.agents import create_menu_agent, create_crud_agent 
-#     from core.llm import PerplexityCustomLLM
-#     from perplexity_async import Client
+async def run_cli_mode():
+    """Run in CLI interactive mode"""
+    from config.database import get_supabase_client, MenuCacheManager
+    from core.agents import create_menu_agent, create_crud_agent 
+    from core.llm import PerplexityCustomLLM
+    from perplexity_async import Client
     
-#     print("\n🤖 AGEN MENU Warung22 - CLI MODE")
-#     print("=" * 60)
-#     print("Commands:")
-#     print("  .menu - Show all menu")
-#     print("  .edit <question> - Edit menu (e.g., .edit ikan habis)") 
-#     print("  .refresh - Refresh cache from database")
-#     print("  exit - Exit application")
-#     print("=" * 60 + "\n")
+    print("\n🤖 AGEN MENU Warung22 - CLI MODE")
+    print("=" * 60)
+    print("Commands:")
+    print("  .menu - Show all menu")
+    print("  .edit <question> - Edit menu (e.g., .edit ikan habis)") 
+    print("  .refresh - Refresh cache from database")
+    print("  exit - Exit application")
+    print("=" * 60 + "\n")
     
-#     # Initialize
-#     try:
-#         supabase = get_supabase_client()
-#     except ValueError as e:
-#         logger.error(f"❌ {e}")
-#         return
+    # Initialize
+    try:
+        supabase = get_supabase_client()
+    except ValueError as e:
+        logger.error(f"❌ {e}")
+        return
     
-#     cache_manager = MenuCacheManager(supabase)
-#     cache_manager.initialize_cache()
-#     cache_manager.setup_realtime_listener()
+    cache_manager = MenuCacheManager(supabase)
+    cache_manager.initialize_cache()
+    cache_manager.setup_realtime_listener()
     
-#     try:
-#         logger.info("🔌 Initializing Perplexity client...")
-#         perplexity_cli = await Client(perplexity_cookies)
-#         logger.info("✅ Perplexity client initialized\n")
-#         logger.info(f"Cookies:{perplexity_cli}\n")
-#     except Exception as e:
-#         logger.error(f"❌ Error init client: {e}")
-#         return
+    try:
+        logger.info("🔌 Initializing Perplexity client...")
+        perplexity_cli = await Client(perplexity_cookies)
+        logger.info("✅ Perplexity client initialized\n")
+        logger.info(f"Cookies:{perplexity_cli}\n")
+    except Exception as e:
+        logger.error(f"❌ Error init client: {e}")
+        return
     
-#     # Create LLM and agent
-#     llm = PerplexityCustomLLM(client=perplexity_cli)
-#     # Agent Menu
-#     agent_graph = create_menu_agent(llm, cache_manager)
-#     # Agent CRUD
-#     crud_agent_graph = create_crud_agent(llm, cache_manager) 
+    # Create LLM and agent
+    llm = PerplexityCustomLLM(client=perplexity_cli)
+    # Agent Menu
+    agent_graph = create_menu_agent(llm, cache_manager)
+    # Agent CRUD
+    crud_agent_graph = create_crud_agent(llm, cache_manager) 
 
-#     try:
-#         while True:
-#             user_input = input("\n👤 Customer: ").strip()
+    try:
+        while True:
+            user_input = input("\n👤 Customer: ").strip()
             
-#             if user_input.lower() == "exit":
-#                 print("\n👋 Terima kasih sudah berkunjung!\n")
-#                 break
+            if user_input.lower() == "exit":
+                print("\n👋 Terima kasih sudah berkunjung!\n")
+                break
             
-#             if user_input.lower() == ".refresh":
-#                 cache_manager.refresh_cache()
-#                 print("✅ Cache updated from database")
-#                 continue
+            if user_input.lower() == ".refresh":
+                cache_manager.refresh_cache()
+                print("✅ Cache updated from database")
+                continue
 
-#             if user_input.lower().startswith(".edit "):
-#                 edit_question = user_input[6:].strip()
+            if user_input.lower().startswith(".edit "):
+                edit_question = user_input[6:].strip()
                 
-#                 try:
-#                     print("\n🤖 Processing edit command...")
-#                     result = await crud_agent_graph.ainvoke({"input": edit_question})
+                try:
+                    print("\n🤖 Processing edit command...")
+                    result = await crud_agent_graph.ainvoke({"input": edit_question})
                     
-#                     message = result.get("result", "Unknown error")
-#                     print(f"\n{message}")
+                    message = result.get("result", "Unknown error")
+                    print(f"\n{message}")
                 
-#                 except Exception as e:
-#                     logger.error(f"❌ Edit error: {e}")
-#                     print(f"\n❌ Error: {e}")
+                except Exception as e:
+                    logger.error(f"❌ Edit error: {e}")
+                    print(f"\n❌ Error: {e}")
                 
-#                 continue 
+                continue 
             
-#             if not user_input:
-#                 continue
+            if not user_input:
+                continue
             
-#             try:
-#                 result = await agent_graph.ainvoke({"input": user_input})
-#                 print(f"\n🤖 Bot: {result['answer']}")
-#             except Exception as e:
-#                 logger.error(f"❌ Error: {e}")
-#                 print(f"\n❌ Error: {e}\n")
+            try:
+                result = await agent_graph.ainvoke({"input": user_input})
+                print(f"\n🤖 Bot: {result['answer']}")
+            except Exception as e:
+                logger.error(f"❌ Error: {e}")
+                print(f"\n❌ Error: {e}\n")
     
-#     finally:
-#         cache_manager.cleanup()
-#         logger.info("🧹 Cleanup completed")
+    finally:
+        cache_manager.cleanup()
+        logger.info("🧹 Cleanup completed")
 
 
 def run_api_mode():
@@ -170,9 +170,9 @@ def main():
     else:
         mode = input("Choose mode (cli/api): ").strip().lower()
     
-    # if mode == "cli":
-        # asyncio.run(run_cli_mode())
-    if mode == "api":
+    if mode == "cli":
+        asyncio.run(run_cli_mode())
+    elif mode == "api":
         if len(sys.argv) > 2 and sys.argv[2] == "--reload":
             run_api_mode_reload()
         else:
